@@ -1,0 +1,10 @@
+# Core Telegram bot framework (async) compatible with Python 3.13
+python-telegram-bot>=21,<22
+
+# HTTP requests for fetching CBR rates
+requests>=2.31,<3
+
+# Load TELEGRAM_TOKEN from .env (optional but recommended)
+python-dotenv>=1.0,<2
+
+
