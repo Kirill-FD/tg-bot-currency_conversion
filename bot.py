@@ -119,8 +119,9 @@ def detect_currency_code(
     Поддержка:
     - RUB/RUR/руб/россия/рф
     - USD/доллар/доллары/сша/america/usa
-    - EUR/евро/европа/ес и т.п.
-    - ISO-код (gbp, cny, kzt и т.п.)
+    - KZT/тенге/казахстан
+    - THB/бат/тайланд
+    - ISO-код (gbp, cny и т.п.)
     - Часть официального названия валюты из XML ЦБ (например, 'юань')
     """
     aliases = {
@@ -147,20 +148,21 @@ def detect_currency_code(
         "america": "USD",
         "америка": "USD",
 
-        # Евро
-        "eur": "EUR",
-        "евро": "EUR",
-        "евросоюз": "EUR",
-        "европа": "EUR",
-        "ес": "EUR",
-        "eu": "EUR",
-
         # Казахский тенге
         "kzt": "KZT",
         "тенге": "KZT",
         "казахстан": "KZT",
         "казахстанский": "KZT",
         "казахстана": "KZT",
+
+        # Тайский бат
+        "thb": "THB",
+        "бат": "THB",
+        "баты": "THB",
+        "батов": "THB",
+        "тайланд": "THB",
+        "тайский": "THB",
+        "thailand": "THB",
     }
 
     normalized = normalize_text(raw_currency)
@@ -191,7 +193,7 @@ def parse_amount_and_currency(text: str) -> Tuple[float | None, str | None]:
     Ожидаем формат наподобие:
     "100 usd"
     "2500 руб"
-    "50 евро"
+    "100 kzt"
     Возвращаем (amount, raw_currency_str).
     """
     cleaned = text.replace(",", ".").strip()
@@ -226,13 +228,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (
         "Привет! 👋\n\n"
         "Я бот-конвертер валют по официальному курсу ЦБ РФ.\n\n"
-        "Отправь мне сумму и валюту — я переведу её в рубли, доллары, евро и тенге по "
+        "Отправь мне сумму и валюту — я переведу её в рубли, доллары, тенге и баты по "
         "актуальному курсу на момент запроса.\n\n"
         "Примеры:\n"
         "• <code>100 usd</code>\n"
         "• <code>2500 руб</code>\n"
-        "• <code>50 евро</code>\n"
         "• <code>100 kzt</code>\n"
+        "• <code>100 thb</code>\n"
         "• <code>100 доллар сша</code>\n\n"
         "Курсы берутся с сайта Банка России."
     )
@@ -256,7 +258,7 @@ async def handle_convert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if raw_currency is None:
         await update.message.reply_text(
             "Не нашёл название валюты. Напиши, пожалуйста, в формате:\n"
-            "<число> <валюта>\n\nНапример: 100 usd, 2500 руб, 50 евро"
+            "<число> <валюта>\n\nНапример: 100 usd, 2500 руб, 100 kzt"
         )
         return
 
@@ -273,8 +275,8 @@ async def handle_convert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if currency_code is None:
         await update.message.reply_text(
             f"Не понимаю валюту «{raw_currency}» 🤔\n"
-            "Попробуй указать ISO-код (например, USD, EUR, CNY) "
-            "или написать: рубль, доллар, евро, юань и т.п."
+            "Попробуй указать ISO-код (например, USD, KZT, THB) "
+            "или написать: рубль, доллар, тенге, бат и т.п."
         )
         return
 
@@ -288,20 +290,20 @@ async def handle_convert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     rub_per_unit = rates[currency_code]
 
     amount_in_rub = amount * rub_per_unit
-    # Курсы рубля к доллару, евро и тенге
+    # Курсы рубля к доллару, тенге и батам
     usd_rate = rates.get("USD")
-    eur_rate = rates.get("EUR")
     kzt_rate = rates.get("KZT")
+    thb_rate = rates.get("THB")
 
-    if usd_rate is None or eur_rate is None or kzt_rate is None:
+    if usd_rate is None or kzt_rate is None or thb_rate is None:
         await update.message.reply_text(
-            "Не удалось получить курс доллара, евро или тенге от ЦБ РФ."
+            "Не удалось получить курс доллара, тенге или батов от ЦБ РФ."
         )
         return
 
     amount_in_usd = amount_in_rub / usd_rate
-    amount_in_eur = amount_in_rub / eur_rate
     amount_in_kzt = amount_in_rub / kzt_rate
+    amount_in_thb = amount_in_rub / thb_rate
 
     reply_lines = [
         f"Курс ЦБ РФ на {cbr_date.strftime('%d.%m.%Y')}:",
@@ -309,8 +311,8 @@ async def handle_convert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         f"{format_amount(amount)} {currency_code} =",
         f"• {format_amount(amount_in_rub)} RUB",
         f"• {format_amount(amount_in_usd)} USD",
-        f"• {format_amount(amount_in_eur)} EUR",
         f"• {format_amount(amount_in_kzt)} KZT",
+        f"• {format_amount(amount_in_thb)} THB",
     ]
 
     await update.message.reply_text("\n".join(reply_lines))
